@@ -1158,7 +1158,7 @@ fn install_editable_incompatible_constraint_url() -> Result<()> {
     ----- stdout -----
 
     ----- stderr -----
-    error: Requirements contain conflicting URLs for package `black`:
+    error: Requirements contain conflicting URLs for package `black` in Marker Environment:
     - [WORKSPACE]/scripts/packages/black_editable
     - https://files.pythonhosted.org/packages/0f/89/294c9a6b6c75a08da55e9d05321d0707e9418735e3062b12ef0f54c33474/black-24.4.2-py3-none-any.whl
     "###
