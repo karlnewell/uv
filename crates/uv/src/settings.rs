@@ -720,6 +720,7 @@ pub(crate) struct SyncSettings {
     pub(crate) editable: EditableMode,
     pub(crate) install_options: InstallOptions,
     pub(crate) modifications: Modifications,
+    pub(crate) all: bool,
     pub(crate) package: Option<PackageName>,
     pub(crate) python: Option<String>,
     pub(crate) refresh: Refresh,
@@ -751,6 +752,7 @@ impl SyncSettings {
             installer,
             build,
             refresh,
+            all,
             package,
             python,
         } = args;
@@ -781,6 +783,7 @@ impl SyncSettings {
             } else {
                 Modifications::Sufficient
             },
+            all,
             package,
             python: python.and_then(Maybe::into_option),
             refresh: Refresh::from(refresh),
