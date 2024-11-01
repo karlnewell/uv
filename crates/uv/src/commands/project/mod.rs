@@ -56,6 +56,7 @@ pub(crate) mod remove;
 pub(crate) mod run;
 pub(crate) mod sync;
 pub(crate) mod tree;
+mod target;
 
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum ProjectError {
@@ -1378,6 +1379,8 @@ pub(crate) fn validate_dependency_groups(
         .flat_map(GroupsSpecification::names)
     {
         match target {
+            // This will need to read from the lockfile instead of the workspace. Maybe we should
+            // just accept that?
             InstallTarget::Workspace(workspace) | InstallTarget::NonProjectWorkspace(workspace) => {
                 // The group must be defined in the workspace.
                 if !workspace.groups().contains(group) {

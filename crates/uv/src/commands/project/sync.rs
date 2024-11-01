@@ -61,7 +61,7 @@ pub(crate) async fn sync(
     printer: Printer,
 ) -> Result<ExitStatus> {
     // Identify the project.
-    let project = if frozen && !all {
+    let project = if frozen {
         VirtualProject::discover(
             project_dir,
             &DiscoveryOptions {
@@ -89,22 +89,9 @@ pub(crate) async fn sync(
         warn_user!("Skipping installation of entry points (`project.scripts`) because this project is not packaged; to install entry points, set `tool.uv.package = true` or define a `build-system`");
     }
 
-    // Identify the target.
-    let target = if let Some(package) = package.as_ref().filter(|_| frozen) {
-        InstallTarget::frozen(&project, package)
-    } else if all {
-        InstallTarget::from_workspace(&project)
-    } else {
-        InstallTarget::from_project(&project)
-    };
-
-    // Determine the default groups to include.
-    validate_dependency_groups(target, &dev)?;
-    let defaults = default_dependency_groups(project.pyproject_toml())?;
-
     // Discover or create the virtual environment.
     let venv = project::get_or_init_environment(
-        target.workspace(),
+        project.workspace(),
         python.as_deref().map(PythonRequest::parse),
         python_preference,
         python_downloads,
@@ -129,7 +116,7 @@ pub(crate) async fn sync(
 
     let lock = match do_safe_lock(
         mode,
-        target.workspace(),
+        project.workspace(),
         settings.as_ref().into(),
         LowerBound::Warn,
         &state,
@@ -163,6 +150,21 @@ pub(crate) async fn sync(
         }
         Err(err) => return Err(err.into()),
     };
+
+
+    // Identify the installation target.
+    let target = if let Some(package) = package.as_ref().filter(|_| frozen) {
+        InstallTarget::frozen(&project, package)
+    } else if all {
+        InstallTarget::from_workspace(&project)
+    } else {
+        InstallTarget::from_project(&project)
+    };
+
+    // Determine the default groups to include.
+    validate_dependency_groups(target, &dev)?;
+    let defaults = default_dependency_groups(project.pyproject_toml())?;
+
 
     // Perform the sync operation.
     do_sync(
