@@ -20,11 +20,11 @@ use uv_pypi_types::{
     LenientRequirement, ParsedArchiveUrl, ParsedGitUrl, ParsedUrl, VerbatimParsedUrl,
 };
 use uv_python::{PythonDownloads, PythonEnvironment, PythonPreference, PythonRequest};
-use uv_resolver::{FlatIndex, InstallTarget, Lock};
+use uv_resolver::{FlatIndex, InstallTarget, };
 use uv_types::{BuildIsolation, HashStrategy};
 use uv_warnings::warn_user;
 use uv_workspace::pyproject::{DependencyGroupSpecifier, Source, Sources, ToolUvSources};
-use uv_workspace::{DiscoveryOptions, InstallTarget, MemberDiscovery, VirtualProject, Workspace};
+use uv_workspace::{DiscoveryOptions,  MemberDiscovery, VirtualProject, Workspace};
 
 use crate::commands::pip::loggers::{DefaultInstallLogger, DefaultResolveLogger, InstallLogger};
 use crate::commands::pip::operations;
@@ -174,7 +174,6 @@ pub(crate) async fn sync(
     do_sync(
         target,
         &venv,
-        &lock,
         &extras,
         &dev.with_defaults(defaults),
         editable,
@@ -198,7 +197,6 @@ pub(crate) async fn sync(
 pub(super) async fn do_sync(
     target: InstallTarget<'_>,
     venv: &PythonEnvironment,
-    lock: &Lock,
     extras: &ExtrasSpecification,
     dev: &DevGroupsManifest,
     editable: EditableMode,
@@ -242,13 +240,13 @@ pub(super) async fn do_sync(
     } = settings;
 
     // Validate that the Python version is supported by the lockfile.
-    if !lock
+    if !target.lock()
         .requires_python()
         .contains(venv.interpreter().python_version())
     {
         return Err(ProjectError::LockedPythonIncompatibility(
             venv.interpreter().python_version().clone(),
-            lock.requires_python().clone(),
+            target.lock().requires_python().clone(),
         ));
     }
 
@@ -256,7 +254,7 @@ pub(super) async fn do_sync(
     let markers = venv.interpreter().resolver_markers();
 
     // Validate that the platform is supported by the lockfile.
-    let environments = lock.supported_environments();
+    let environments = target.lock().supported_environments();
     if !environments.is_empty() {
         if !environments.iter().any(|env| env.evaluate(&markers, &[])) {
             return Err(ProjectError::LockedPlatformIncompatibility(
@@ -265,7 +263,7 @@ pub(super) async fn do_sync(
                 // what the end user actually wrote. The non-simplified
                 // environments, by contrast, are explicitly
                 // constrained by `requires-python`.
-                lock.simplified_supported_environments()
+                target.lock().simplified_supported_environments()
                     .iter()
                     .filter_map(MarkerTree::contents)
                     .map(|env| format!("`{env}`"))
@@ -278,8 +276,7 @@ pub(super) async fn do_sync(
     let tags = venv.interpreter().tags()?;
 
     // Read the lockfile.
-    let resolution = lock.to_resolution(
-        target,
+    let resolution = target.to_resolution(
         &markers,
         tags,
         extras,
