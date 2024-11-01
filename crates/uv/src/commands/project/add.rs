@@ -35,7 +35,7 @@ use uv_types::{BuildIsolation, HashStrategy};
 use uv_warnings::warn_user_once;
 use uv_workspace::pyproject::{DependencyType, Source, SourceError};
 use uv_workspace::pyproject_mut::{ArrayEdit, DependencyTarget, PyProjectTomlMut};
-use uv_workspace::{DiscoveryOptions,  VirtualProject, Workspace};
+use uv_workspace::{DiscoveryOptions, VirtualProject, Workspace};
 
 use crate::commands::pip::loggers::{
     DefaultInstallLogger, DefaultResolveLogger, SummaryResolveLogger,
@@ -871,18 +871,20 @@ async fn lock_and_sync(
 
     // Identify the installation target.
     let target = match &project {
-        VirtualProject::Project(project) => {
-            InstallTarget::Project { workspace: project.workspace(), name: project.project_name(), lock: &lock }
-        }
-        VirtualProject::NonProject(workspace) => {
-            InstallTarget::NonProjectWorkspace { workspace, lock: &lock }
-        }
+        VirtualProject::Project(project) => InstallTarget::Project {
+            workspace: project.workspace(),
+            name: project.project_name(),
+            lock: &lock,
+        },
+        VirtualProject::NonProject(workspace) => InstallTarget::NonProjectWorkspace {
+            workspace,
+            lock: &lock,
+        },
     };
 
     project::sync::do_sync(
         target,
         venv,
-        &lock,
         &extras,
         &DevGroupsManifest::from_spec(dev),
         EditableMode::Editable,

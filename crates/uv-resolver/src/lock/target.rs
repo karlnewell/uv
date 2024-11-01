@@ -10,47 +10,54 @@ use uv_pypi_types::{ResolverMarkerEnvironment, VerbatimParsedUrl};
 use uv_workspace::dependency_groups::{DependencyGroupError, FlatDependencyGroups};
 use uv_workspace::Workspace;
 
-use crate::{Lock, LockError};
 use crate::lock::{LockErrorKind, Package, TagPolicy};
+use crate::{Lock, LockError};
 
-/// A target that can be installed.
+/// A target that can be installed from a lockfile.
 #[derive(Debug, Copy, Clone)]
 pub enum InstallTarget<'env> {
     /// A project (which could be a workspace root or member).
-    Project { workspace: &'env Workspace, name: &'env PackageName, lock: &'env Lock },
+    Project {
+        workspace: &'env Workspace,
+        name: &'env PackageName,
+        lock: &'env Lock,
+    },
     /// An entire workspace.
-    Workspace { workspace: &'env Workspace, lock: &'env Lock },
-    /// A (legacy) workspace with a non-project root.
-    NonProjectWorkspace { workspace: &'env Workspace, lock: &'env Lock},
+    Workspace {
+        workspace: &'env Workspace,
+        lock: &'env Lock,
+    },
+    /// An entire workspace with a (legacy) non-project root.
+    NonProjectWorkspace {
+        workspace: &'env Workspace,
+        lock: &'env Lock,
+    },
 }
 
 impl<'env> InstallTarget<'env> {
     /// Return the [`Workspace`] of the target.
-    pub fn workspace(&self) -> &Workspace {
+    pub fn workspace(&self) -> &'env Workspace {
         match self {
-            Self::Project { workspace, ..} => workspace,
-            Self::Workspace { workspace, ..} => workspace,
-            Self::NonProjectWorkspace { workspace, ..} => workspace,
+            Self::Project { workspace, .. } => workspace,
+            Self::Workspace { workspace, .. } => workspace,
+            Self::NonProjectWorkspace { workspace, .. } => workspace,
         }
     }
 
-
     /// Return the [`Lock`] of the target.
-    pub fn lock(&self) -> &Lock {
+    pub fn lock(&self) -> &'env Lock {
         match self {
-            Self::Project { lock, ..} => lock,
-            Self::Workspace { lock, ..} => lock,
-            Self::NonProjectWorkspace { lock, ..} => lock,
+            Self::Project { lock, .. } => lock,
+            Self::Workspace { lock, .. } => lock,
+            Self::NonProjectWorkspace { lock, .. } => lock,
         }
     }
 
     /// Return the [`PackageName`] of the target.
     pub fn packages(&self) -> impl Iterator<Item = &PackageName> {
         match self {
-            Self::Project { name, ..} => Either::Right(Either::Left(std::iter::once(*name))),
-            Self::NonProjectWorkspace { lock, .. } => {
-                Either::Left(lock.members().into_iter())
-            }
+            Self::Project { name, .. } => Either::Right(Either::Left(std::iter::once(*name))),
+            Self::NonProjectWorkspace { lock, .. } => Either::Left(lock.members().iter()),
             Self::Workspace { lock, .. } => {
                 // Identify the workspace members.
                 //
@@ -59,9 +66,9 @@ impl<'env> InstallTarget<'env> {
                 if lock.members().is_empty() {
                     Either::Right(Either::Right(lock.root().into_iter()))
                 } else {
-                    Either::Left(lock.members().into_iter())
+                    Either::Left(lock.members().iter())
                 }
-            },
+            }
         }
     }
 
@@ -79,7 +86,7 @@ impl<'env> InstallTarget<'env> {
         match self {
             Self::Project { .. } => Ok(BTreeMap::default()),
             Self::Workspace { .. } => Ok(BTreeMap::default()),
-            Self::NonProjectWorkspace { workspace, ..  }=> {
+            Self::NonProjectWorkspace { workspace, .. } => {
                 // For non-projects, we might have `dependency-groups` or `tool.uv.dev-dependencies`
                 // that are attached to the workspace root (which isn't a member).
 
@@ -129,9 +136,9 @@ impl<'env> InstallTarget<'env> {
     /// Return the [`PackageName`] of the target, if available.
     pub fn project_name(&self) -> Option<&PackageName> {
         match self {
-            Self::Project { name, ..} => Some(name),
-            Self::Workspace {.. } => None,
-            Self::NonProjectWorkspace {.. } => None,
+            Self::Project { name, .. } => Some(name),
+            Self::Workspace { .. } => None,
+            Self::NonProjectWorkspace { .. } => None,
         }
     }
 
@@ -150,7 +157,8 @@ impl<'env> InstallTarget<'env> {
 
         // Add the workspace packages to the queue.
         for root_name in self.packages() {
-            let root = self.lock()
+            let root = self
+                .lock()
                 .find_by_name(root_name)
                 .map_err(|_| LockErrorKind::MultipleRootPackages {
                     name: root_name.clone(),
@@ -206,7 +214,8 @@ impl<'env> InstallTarget<'env> {
             for dependency in groups.get(group).into_iter().flatten() {
                 if dependency.marker.evaluate(marker_env, &[]) {
                     let root_name = &dependency.name;
-                    let root = self.lock()
+                    let root = self
+                        .lock()
                         .find_by_markers(root_name, marker_env)
                         .map_err(|_| LockErrorKind::MultipleRootPackages {
                             name: root_name.clone(),

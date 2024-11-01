@@ -30,12 +30,15 @@ use uv_python::{
 };
 use uv_requirements::upgrade::{read_lock_requirements, LockedRequirements};
 use uv_requirements::{NamedRequirementsResolver, RequirementsSpecification};
-use uv_resolver::{FlatIndex, InstallTarget, Lock, OptionsBuilder, PythonRequirement, RequiresPython, ResolutionGraph, ResolverMarkers};
+use uv_resolver::{
+    FlatIndex, Lock, OptionsBuilder, PythonRequirement, RequiresPython, ResolutionGraph,
+    ResolverMarkers,
+};
 use uv_types::{BuildIsolation, EmptyInstalledPackages, HashStrategy};
 use uv_warnings::{warn_user, warn_user_once};
 use uv_workspace::dependency_groups::DependencyGroupError;
 use uv_workspace::pyproject::PyProjectToml;
-use uv_workspace::Workspace;
+use uv_workspace::{ProjectWorkspace, Workspace};
 
 use crate::commands::pip::loggers::{InstallLogger, ResolveLogger};
 use crate::commands::pip::operations::{Changelog, Modifications};
@@ -1363,42 +1366,46 @@ pub(crate) async fn script_python_requirement(
     ))
 }
 
-/// Validate the dependency groups requested by the [`DevGroupsSpecification`].
-#[allow(clippy::result_large_err)]
-pub(crate) fn validate_dependency_groups(
-    target: InstallTarget<'_>,
-    dev: &DevGroupsSpecification,
-) -> Result<(), ProjectError> {
-    for group in dev
-        .groups()
-        .into_iter()
-        .flat_map(GroupsSpecification::names)
-    {
-        match target {
-            // This will need to read from the lockfile instead of the workspace. Maybe we should
-            // just accept that?
-            InstallTarget::Workspace(workspace) | InstallTarget::NonProjectWorkspace(workspace) => {
-                // The group must be defined in the workspace.
-                if !workspace.groups().contains(group) {
-                    return Err(ProjectError::MissingGroupWorkspace(group.clone()));
+#[derive(Debug, Copy, Clone)]
+pub(crate) enum DependencyGroupsTarget<'env> {
+    /// The dependency groups can be defined in any workspace member.
+    Workspace(&'env Workspace),
+    /// The dependency groups must be defined in the target project.
+    Project(&'env ProjectWorkspace),
+}
+
+impl DependencyGroupsTarget<'_> {
+    /// Validate the dependency groups requested by the [`DevGroupsSpecification`].
+    #[allow(clippy::result_large_err)]
+    pub(crate) fn validate(self, dev: &DevGroupsSpecification) -> Result<(), ProjectError> {
+        for group in dev
+            .groups()
+            .into_iter()
+            .flat_map(GroupsSpecification::names)
+        {
+            match self {
+                Self::Workspace(workspace) => {
+                    // The group must be defined in the workspace.
+                    if !workspace.groups().contains(group) {
+                        return Err(ProjectError::MissingGroupWorkspace(group.clone()));
+                    }
+                }
+                Self::Project(project) => {
+                    // The group must be defined in the target project.
+                    if !project
+                        .current_project()
+                        .pyproject_toml()
+                        .dependency_groups
+                        .as_ref()
+                        .is_some_and(|groups| groups.contains_key(group))
+                    {
+                        return Err(ProjectError::MissingGroupProject(group.clone()));
+                    }
                 }
             }
-            InstallTarget::Project(project) => {
-                // The group must be defined in the target project.
-                if !project
-                    .current_project()
-                    .pyproject_toml()
-                    .dependency_groups
-                    .as_ref()
-                    .is_some_and(|groups| groups.contains_key(group))
-                {
-                    return Err(ProjectError::MissingGroupProject(group.clone()));
-                }
-            }
-            InstallTarget::FrozenProject(_, _) => {}
         }
+        Ok(())
     }
-    Ok(())
 }
 
 /// Returns the default dependency groups from the [`PyProjectToml`].

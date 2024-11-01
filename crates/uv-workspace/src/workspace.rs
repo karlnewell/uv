@@ -5,7 +5,6 @@ use crate::pyproject::{
     DependencyGroups, Project, PyProjectToml, PyprojectTomlError, Sources, ToolUvSources,
     ToolUvWorkspace,
 };
-use either::Either;
 use glob::{glob, GlobError, PatternError};
 use rustc_hash::FxHashSet;
 use std::collections::{BTreeMap, BTreeSet};
@@ -15,7 +14,7 @@ use uv_distribution_types::Index;
 use uv_fs::{Simplified, CWD};
 use uv_normalize::{GroupName, PackageName, DEV_DEPENDENCIES};
 use uv_pep508::{MarkerTree, RequirementOrigin, VerbatimUrl};
-use uv_pypi_types::{Requirement, RequirementSource, SupportedEnvironments, VerbatimParsedUrl};
+use uv_pypi_types::{Requirement, RequirementSource, SupportedEnvironments};
 use uv_static::EnvVars;
 use uv_warnings::{warn_user, warn_user_once};
 

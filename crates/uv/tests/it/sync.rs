@@ -1882,6 +1882,19 @@ fn no_install_workspace() -> Result<()> {
     error: Could not find root package `fake`
     "###);
 
+    // Even if `--all` is used.
+    uv_snapshot!(context.filters(), context.sync().arg("--all").arg("--no-install-workspace").arg("--frozen"), @r###"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Installed 3 packages in [TIME]
+     + anyio==3.7.0
+     + idna==3.6
+     + sniffio==1.3.1
+    "###);
+
     // But we do require the root `pyproject.toml`.
     fs_err::remove_file(context.temp_dir.join("pyproject.toml"))?;
 
