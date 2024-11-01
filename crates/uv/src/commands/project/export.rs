@@ -13,7 +13,7 @@ use uv_configuration::{
 };
 use uv_normalize::PackageName;
 use uv_python::{PythonDownloads, PythonPreference, PythonRequest};
-use uv_resolver::RequirementsTxtExport;
+use uv_resolver::{InstallTarget, RequirementsTxtExport};
 use uv_workspace::{DiscoveryOptions, InstallTarget, MemberDiscovery, VirtualProject, Workspace};
 
 use crate::commands::pip::loggers::DefaultResolveLogger;

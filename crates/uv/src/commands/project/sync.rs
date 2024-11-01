@@ -20,7 +20,7 @@ use uv_pypi_types::{
     LenientRequirement, ParsedArchiveUrl, ParsedGitUrl, ParsedUrl, VerbatimParsedUrl,
 };
 use uv_python::{PythonDownloads, PythonEnvironment, PythonPreference, PythonRequest};
-use uv_resolver::{FlatIndex, Lock};
+use uv_resolver::{FlatIndex, InstallTarget, Lock};
 use uv_types::{BuildIsolation, HashStrategy};
 use uv_warnings::warn_user;
 use uv_workspace::pyproject::{DependencyGroupSpecifier, Source, Sources, ToolUvSources};
@@ -153,18 +153,22 @@ pub(crate) async fn sync(
 
 
     // Identify the installation target.
-    let target = if let Some(package) = package.as_ref().filter(|_| frozen) {
-        InstallTarget::frozen(&project, package)
-    } else if all {
-        InstallTarget::from_workspace(&project)
-    } else {
-        InstallTarget::from_project(&project)
+    let target = match &project {
+        VirtualProject::Project(project) => {
+            if all {
+                InstallTarget::Workspace { workspace: project.workspace(), lock: &lock }
+            } else {
+                InstallTarget::Project { workspace: project.workspace(), name: project.project_name(), lock: &lock }
+            }
+        }
+        VirtualProject::NonProject(workspace) => {
+            InstallTarget::NonProjectWorkspace { workspace, lock: &lock }
+        }
     };
 
     // Determine the default groups to include.
     validate_dependency_groups(target, &dev)?;
     let defaults = default_dependency_groups(project.pyproject_toml())?;
-
 
     // Perform the sync operation.
     do_sync(

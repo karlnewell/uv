@@ -5,7 +5,7 @@ pub use exclusions::Exclusions;
 pub use flat_index::{FlatDistributions, FlatIndex};
 pub use lock::{
     Lock, LockError, LockVersion, RequirementsTxtExport, ResolverManifest, SatisfiesResult,
-    TreeDisplay, VERSION,
+    TreeDisplay, VERSION, InstallTarget,
 };
 pub use manifest::Manifest;
 pub use options::{Flexibility, Options, OptionsBuilder};

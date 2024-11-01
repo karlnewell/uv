@@ -1,5 +1,5 @@
 pub use workspace::{
-    check_nested_workspaces, DiscoveryOptions, InstallTarget, MemberDiscovery, ProjectWorkspace,
+    check_nested_workspaces, DiscoveryOptions,  MemberDiscovery, ProjectWorkspace,
     VirtualProject, Workspace, WorkspaceError, WorkspaceMember,
 };
 

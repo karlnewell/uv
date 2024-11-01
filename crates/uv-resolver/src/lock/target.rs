@@ -1,46 +1,53 @@
 use std::collections::BTreeMap;
 
-use itertools::Either;
+use either::Either;
 
 use uv_normalize::{GroupName, PackageName, DEV_DEPENDENCIES};
 use uv_pypi_types::VerbatimParsedUrl;
-use uv_resolver::Lock;
 use uv_workspace::dependency_groups::{DependencyGroupError, FlatDependencyGroups};
-use uv_workspace::{ProjectWorkspace, VirtualProject, Workspace};
+use uv_workspace::Workspace;
+
+use crate::Lock;
 
 /// A target that can be installed.
 #[derive(Debug, Copy, Clone)]
 pub enum InstallTarget<'env> {
     /// A project (which could be a workspace root or member).
-    Project(&'env Workspace, &'env PackageName, &'env Lock),
+    Project { workspace: &'env Workspace, name: &'env PackageName, lock: &'env Lock },
     /// An entire workspace.
-    Workspace(&'env Workspace, &'env Lock),
+    Workspace { workspace: &'env Workspace, lock: &'env Lock },
     /// A (legacy) workspace with a non-project root.
-    NonProjectWorkspace(&'env Workspace, &'env Lock),
+    NonProjectWorkspace { workspace: &'env Workspace, lock: &'env Lock},
 }
 
 impl<'env> InstallTarget<'env> {
     /// Return the [`Workspace`] of the target.
     pub fn workspace(&self) -> &Workspace {
         match self {
-            Self::Project(workspace) => workspace,
-            Self::Workspace(workspace) => workspace,
-            Self::NonProjectWorkspace(workspace) => workspace,
-            Self::FrozenProject(workspace, _) => workspace,
-            Self::FrozenWorkspace(workspace, _) => workspace,
-            Self::FrozenNonProjectWorkspace(workspace, _) => workspace,
+            Self::Project { workspace, ..} => workspace,
+            Self::Workspace { workspace, ..} => workspace,
+            Self::NonProjectWorkspace { workspace, ..} => workspace,
         }
     }
 
     /// Return the [`PackageName`] of the target.
     pub fn packages(&self) -> impl Iterator<Item = &PackageName> {
         match self {
-            Self::Project(project) => Either::Left(std::iter::once(project.project_name())),
-            Self::Workspace(workspace) => Either::Right(workspace.packages().keys()),
-            Self::NonProjectWorkspace(workspace) => Either::Right(workspace.packages().keys()),
-            Self::FrozenProject(_, package_name) => Either::Left(std::iter::once(*package_name)),
-            Self::FrozenWorkspace(_, lock) => Either::Right(workspace.packages().keys()),
-            Self::FrozenNonProjectWorkspace(_, lock) => Either::Right(workspace.packages().keys()),
+            Self::Project { name, ..} => Either::Right(Either::Left(std::iter::once(*name))),
+            Self::NonProjectWorkspace { lock, .. } => {
+                Either::Left(lock.members().into_iter())
+            }
+            Self::Workspace { lock, .. } => {
+                // Identify the workspace members.
+                //
+                // The members are encoded directly in the lockfile, unless the workspace contains a
+                // single member at the root, in which case, we identify it by its source.
+                if lock.members().is_empty() {
+                    Either::Right(Either::Right(lock.root().into_iter()))
+                } else {
+                    Either::Left(lock.members().into_iter())
+                }
+            },
         }
     }
 
@@ -56,11 +63,9 @@ impl<'env> InstallTarget<'env> {
         DependencyGroupError,
     > {
         match self {
-            Self::Project(_) => Ok(BTreeMap::default()),
-            Self::Workspace(_) => Ok(BTreeMap::default()),
-            Self::FrozenProject(_, _) => Ok(BTreeMap::default()),
-            Self::FrozenWorkspace(_, _) => Ok(BTreeMap::default()),
-            Self::NonProjectWorkspace(workspace) | Self::FrozenNonProjectWorkspace(workspace, _) => {
+            Self::Project { .. } => Ok(BTreeMap::default()),
+            Self::Workspace { .. } => Ok(BTreeMap::default()),
+            Self::NonProjectWorkspace { workspace, ..  }=> {
                 // For non-projects, we might have `dependency-groups` or `tool.uv.dev-dependencies`
                 // that are attached to the workspace root (which isn't a member).
 
@@ -110,26 +115,9 @@ impl<'env> InstallTarget<'env> {
     /// Return the [`PackageName`] of the target, if available.
     pub fn project_name(&self) -> Option<&PackageName> {
         match self {
-            Self::Project(project) => Some(project.project_name()),
-            Self::Workspace(_) => None,
-            Self::NonProjectWorkspace(_) => None,
-            Self::FrozenProject(_, package_name) => Some(package_name),
-            Self::FrozenWorkspace(_, _) => None,
-            Self::FrozenNonProjectWorkspace(_, _) => None,
-        }
-    }
-
-    pub fn from_workspace(workspace: &'env VirtualProject) -> Self {
-        match workspace {
-            VirtualProject::Project(project) => Self::Workspace(project.workspace()),
-            VirtualProject::NonProject(workspace) => Self::NonProjectWorkspace(workspace),
-        }
-    }
-
-    pub fn from_project(project: &'env VirtualProject) -> Self {
-        match project {
-            VirtualProject::Project(project) => Self::Project(project),
-            VirtualProject::NonProject(workspace) => Self::NonProjectWorkspace(workspace),
+            Self::Project { name, ..} => Some(name),
+            Self::Workspace {.. } => None,
+            Self::NonProjectWorkspace {.. } => None,
         }
     }
 }

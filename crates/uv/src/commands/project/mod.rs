@@ -30,15 +30,12 @@ use uv_python::{
 };
 use uv_requirements::upgrade::{read_lock_requirements, LockedRequirements};
 use uv_requirements::{NamedRequirementsResolver, RequirementsSpecification};
-use uv_resolver::{
-    FlatIndex, Lock, OptionsBuilder, PythonRequirement, RequiresPython, ResolutionGraph,
-    ResolverMarkers,
-};
+use uv_resolver::{FlatIndex, InstallTarget, Lock, OptionsBuilder, PythonRequirement, RequiresPython, ResolutionGraph, ResolverMarkers};
 use uv_types::{BuildIsolation, EmptyInstalledPackages, HashStrategy};
 use uv_warnings::{warn_user, warn_user_once};
 use uv_workspace::dependency_groups::DependencyGroupError;
 use uv_workspace::pyproject::PyProjectToml;
-use uv_workspace::{InstallTarget, Workspace};
+use uv_workspace::Workspace;
 
 use crate::commands::pip::loggers::{InstallLogger, ResolveLogger};
 use crate::commands::pip::operations::{Changelog, Modifications};
@@ -56,7 +53,6 @@ pub(crate) mod remove;
 pub(crate) mod run;
 pub(crate) mod sync;
 pub(crate) mod tree;
-mod target;
 
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum ProjectError {

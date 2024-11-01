@@ -16,6 +16,7 @@ use url::Url;
 
 pub use crate::lock::requirements_txt::RequirementsTxtExport;
 pub use crate::lock::tree::TreeDisplay;
+pub use crate::lock::target::InstallTarget;
 use crate::requires_python::SimplifiedMarkerTree;
 use crate::resolution::{AnnotatedDist, ResolutionGraphNode};
 use crate::{
@@ -44,7 +45,7 @@ use uv_pypi_types::{
 };
 use uv_types::{BuildContext, HashStrategy};
 use uv_workspace::dependency_groups::DependencyGroupError;
-use uv_workspace::{InstallTarget, Workspace};
+use uv_workspace::{Workspace};
 
 mod requirements_txt;
 mod tree;
@@ -542,6 +543,23 @@ impl Lock {
     /// Returns the workspace members that were used to generate this lock.
     pub fn members(&self) -> &BTreeSet<PackageName> {
         &self.manifest.members
+    }
+
+    /// Return the workspace root used to generate this lock.
+    pub fn root(&self) -> Option<&PackageName> {
+        self.packages
+            .iter()
+            .find_map(|package| {
+                let (Source::Editable(path) | Source::Virtual(path)) = &package.id.source
+                else {
+                    return None;
+                };
+                if path == Path::new("") {
+                    Some(&package.id.name)
+                } else {
+                    None
+                }
+            })
     }
 
     /// Returns the supported environments that were used to generate this
@@ -4218,3 +4236,4 @@ fn each_element_on_its_line_array(elements: impl Iterator<Item = impl Into<Value
 
 #[cfg(test)]
 mod tests;
+mod target;
