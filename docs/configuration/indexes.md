@@ -125,7 +125,7 @@ While `unsafe-best-match` is the closest to pip's behavior, it exposes users to 
 Most private registries require authentication to access packages, typically via a username and
 password (or access token).
 
-To authenticate with a provide index, either provide credentials via environment variables or embed
+To authenticate with a private index, either provide credentials via environment variables or embed
 them in the URL.
 
 For example, given an index named `internal-proxy` that requires a username (`public`) and password
